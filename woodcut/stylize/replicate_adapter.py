@@ -57,19 +57,51 @@ class ReplicateAdapter(StylizeAdapter):
         if not os.environ.get("REPLICATE_API_TOKEN"):
             raise RuntimeError("REPLICATE_API_TOKEN is not set.")
 
-        with open(photo_path, "rb") as img:
-            output = replicate.run(
-                self.model,
-                input={
-                    "prompt": prompt,
-                    "negative_prompt": negative_prompt,
-                    "image": img,
-                    "prompt_strength": self.strength,
-                    "num_outputs": 1,
-                },
-            )
+        # A bare 'owner/name' hits Replicate's official-model endpoint (404 for
+        # versioned community models like stability-ai/sdxl). Pin to the latest
+        # version unless the user already specified one as 'owner/name:version'.
+        model_ref = self.model if ":" in self.model else self._pin_version(replicate, self.model)
+
+        try:
+            with open(photo_path, "rb") as img:
+                output = replicate.run(
+                    model_ref,
+                    input={
+                        "prompt": prompt,
+                        "negative_prompt": negative_prompt,
+                        "image": img,
+                        "prompt_strength": self.strength,
+                        "num_outputs": 1,
+                    },
+                )
+        except Exception as e:  # noqa: BLE001 - re-wrap with actionable guidance
+            msg = str(e)
+            if "404" in msg or "not be found" in msg:
+                raise RuntimeError(
+                    f"Replicate could not find or run model {model_ref!r}. Check "
+                    "REPLICATE_MODEL is a real slug, or pin it explicitly as "
+                    "'owner/name:version'. Original: " + msg
+                ) from e
+            if "401" in msg or "402" in msg or "403" in msg or "Unauthorized" in msg:
+                raise RuntimeError(
+                    "Replicate rejected the request (auth/billing). Verify "
+                    "REPLICATE_API_TOKEN and that billing is set up. Original: " + msg
+                ) from e
+            raise
         # Output may be a single item or a list of FileOutput/str.
         return output[0] if isinstance(output, (list, tuple)) else output
+
+    @staticmethod
+    def _pin_version(replicate, slug: str) -> str:
+        """Resolve 'owner/name' to 'owner/name:latest_version_id'."""
+        model = replicate.models.get(slug)
+        version = getattr(model, "latest_version", None)
+        if version is None:
+            raise RuntimeError(
+                f"Model {slug!r} has no resolvable version. Pin REPLICATE_MODEL "
+                "explicitly as 'owner/name:version'."
+            )
+        return f"{slug}:{version.id}"
 
 
 def _fetch_bytes(item) -> bytes:

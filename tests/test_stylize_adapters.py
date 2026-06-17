@@ -67,6 +67,24 @@ def test_replicate_fetch_bytes_rejects_garbage():
         _fetch_bytes(object())
 
 
+def _fake_replicate(version_id):
+    """Minimal stand-in exposing models.get(slug).latest_version.id."""
+    version = type("V", (), {"id": version_id})() if version_id else None
+    model = type("M", (), {"latest_version": version})()
+    models = type("Models", (), {"get": staticmethod(lambda slug: model)})
+    return type("Replicate", (), {"models": models})
+
+
+def test_replicate_pins_latest_version():
+    ref = ReplicateAdapter._pin_version(_fake_replicate("abc123def"), "stability-ai/sdxl")
+    assert ref == "stability-ai/sdxl:abc123def"
+
+
+def test_replicate_pin_raises_without_version():
+    with pytest.raises(RuntimeError):
+        ReplicateAdapter._pin_version(_fake_replicate(None), "owner/name")
+
+
 def test_fal_stylize_downloads_first_image(tmp_path, monkeypatch):
     src = _make_png(tmp_path / "photo.png", color=(60, 60, 90))
     adapter = FalAdapter()
