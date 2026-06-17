@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+*.egg-info/
+.pytest_cache/
+
+# Your source photographs and generated artifacts (keep the dirs, ignore contents)
+photos/*
+!photos/.gitkeep
+outputs/*
+!outputs/.gitkeep
+benchmark_runs/

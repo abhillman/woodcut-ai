@@ -1,0 +1,32 @@
+[project]
+name = "woodcut-ai"
+version = "0.1.0"
+description = "Turn photographs into laser-cuttable, Killion-style woodblock print layers, with Claude as the analysis/judge backbone."
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.69",
+    "pydantic>=2.6",
+    "pillow>=10.2",
+    "numpy>=1.26",
+    "scikit-learn>=1.4",   # k-means color quantization
+    "svgwrite>=1.4",       # assembling laser SVGs
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+woodcut = "cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["cli"]
+packages = ["woodcut", "woodcut.stylize", "benchmark"]
+
+# External binary dependency (not pip-installable):
+#   potrace  -- raster->vector tracing.  brew install potrace  /  apt-get install potrace
+# The vectorize step shells out to it and degrades gracefully if absent.
