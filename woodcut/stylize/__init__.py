@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 from .base import StylizeAdapter
+from .fal_adapter import FalAdapter
+from .replicate_adapter import ReplicateAdapter
 from .stub import StubStylizeAdapter
 
 _ADAPTERS: dict[str, type[StylizeAdapter]] = {
     "stub": StubStylizeAdapter,
-    # "myprovider": MyProviderAdapter,   # <- register real adapters here
+    "replicate": ReplicateAdapter,
+    "fal": FalAdapter,
 }
 
 

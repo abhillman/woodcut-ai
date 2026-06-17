@@ -6,6 +6,7 @@ Edit `default_matrix()` to add stylize adapters, layer counts, or modes.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from itertools import product
 
@@ -30,9 +31,17 @@ def default_matrix() -> list[Cell]:
     # Classical-CV-only baseline (no diffusion) at a couple of layer counts.
     for layers in (4, 5, 6):
         cells.append(Cell("stub", layers, ProductionMode.SEPARATE, use_stylizer=False))
-    # Hybrid (stylize + CV) — add real adapters to the first tuple element below.
+
+    # Hybrid (diffusion stylize + CV). Include a provider only when its token is
+    # configured, so the default offline run never reaches for the network.
+    adapters = ["stub"]
+    if os.environ.get("REPLICATE_API_TOKEN"):
+        adapters.append("replicate")
+    if os.environ.get("FAL_AI_TOKEN") or os.environ.get("FAL_KEY"):
+        adapters.append("fal")
+
     for adapter, layers, mode in product(
-        ["stub"], (4, 5), (ProductionMode.SEPARATE, ProductionMode.REDUCTION)
+        adapters, (4, 5), (ProductionMode.SEPARATE, ProductionMode.REDUCTION)
     ):
         cells.append(Cell(adapter, layers, mode, use_stylizer=True))
     return cells

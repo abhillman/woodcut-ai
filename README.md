@@ -73,18 +73,33 @@ woodcut adapters                                  # list stylize adapters
 `blocks/block_NN_*.svg` (what you send to the laser), and `preview.png` (a
 flattened color mockup of the printed result).
 
-## Wiring a real diffusion model
+## Diffusion stylization adapters
 
-The stylize slot is an adapter (`woodcut/stylize/base.py`). To add a provider:
+The stylize slot is a pluggable adapter (`woodcut/stylize/base.py`). Three ship
+in the box:
 
-1. Copy `woodcut/stylize/stub.py`, implement `stylize()` against your API or
-   local endpoint (e.g. ComfyUI / Stable Diffusion).
-2. Register it in `woodcut/stylize/__init__.py`.
-3. Set `WOODCUT_STYLIZE_ADAPTER=yourname`, and add it to `benchmark/matrix.py`
-   so it's swept against the others.
+| Adapter | Provider | Notes |
+|---|---|---|
+| `stub` | none (offline) | median-blur + posterize; verifies plumbing, default |
+| `replicate` | [Replicate](https://replicate.com) | img2img; broadest model/ControlNet catalog |
+| `fal` | [fal.ai](https://fal.ai) | img2img; fastest iteration |
 
+```bash
+pip install -e '.[providers]'          # installs the replicate + fal-client SDKs
+# in .env:
+WOODCUT_STYLIZE_ADAPTER=replicate
+REPLICATE_API_TOKEN=...                 # or FAL_AI_TOKEN=... with adapter=fal
+REPLICATE_MODEL=stability-ai/sdxl       # swap the model slug to sweep variants
+WOODCUT_STYLIZE_STRENGTH=0.65           # img2img strength; lower = closer to photo
+
+woodcut make photos/lake.jpg            # now routes the photo through the model
+```
+
+Both adapters do **img2img**, so the photo's composition is preserved (important
+for keeping the key block and color separation aligned to the real scene).
 Nothing downstream changes — separation/vectorize/laser don't care which adapter
-produced the image.
+produced the image. To add another provider (e.g. local ComfyUI), copy an
+adapter, implement `stylize()`, and register it in `woodcut/stylize/__init__.py`.
 
 ## Benchmarking
 
@@ -102,7 +117,7 @@ woodcut/
   models.py      domain model (key block, color blocks, reduction, registration)
   analysis.py    Claude vision -> BlockPlan  (heuristic fallback offline)
   prompts.py     Killion-informed prompts (analysis, stylize, judge)
-  stylize/       pluggable diffusion adapters (base + stub)
+  stylize/       pluggable diffusion adapters (stub, replicate, fal)
   separate.py    k-means color separation + key-block edge mask  (CV)
   vectorize.py   potrace raster->vector  (CV)
   laser.py       per-block SVGs + registration marks + color preview
