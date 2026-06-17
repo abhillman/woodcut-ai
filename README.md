@@ -79,6 +79,24 @@ Before a full benchmark, sanity-check your provider token with one cheap call:
 `woodcut smoke --adapter replicate` (or `--adapter fal`) reports whether the
 token is set, the SDK is installed, and the call succeeded.
 
+### Tuning the sparseness (Hiroshige/Hokusai/Killion)
+
+The pipeline targets a *sparse* look: mostly bare paper, a few flat ink shapes,
+a handful of outlines. A layer marked `is_background` is left as **bare paper**
+(negative space), the image is aggressively flattened before separation, small
+regions are despeckled to paper, and the key block is just the **seams between
+flat areas**, not edge-detected texture. Knobs on `make`:
+
+```bash
+woodcut make photo.jpg --layers 4          # total layers incl. key + paper (fewer = sparser)
+                       --simplify 13        # flatten window px (higher = flatter/sparser; 0=auto)
+                       --min-region 0.004   # drop regions below this fraction -> more bare paper
+                       --line 2             # key-block outline weight (px)
+```
+
+With `ANTHROPIC_API_KEY` set, Claude chooses the palette, which regions become
+bare paper, and the minimal key silhouette — the most direct lever on the look.
+
 ## Diffusion stylization adapters
 
 The stylize slot is a pluggable adapter (`woodcut/stylize/base.py`). Three ship

@@ -34,9 +34,14 @@ def main(argv: list[str] | None = None) -> int:
     p_mk = sub.add_parser("make", help="Full pipeline -> laser SVGs + preview")
     p_mk.add_argument("photo")
     p_mk.add_argument("-o", "--out", default=None)
-    p_mk.add_argument("--layers", type=int, default=5)
+    p_mk.add_argument("--layers", type=int, default=4, help="total layers incl. key+paper")
     p_mk.add_argument("--mode", choices=[m.value for m in ProductionMode], default="separate")
     p_mk.add_argument("--no-stylize", action="store_true", help="classical-CV-only path")
+    p_mk.add_argument("--simplify", type=int, default=0,
+                      help="flatten window px (0=auto; higher=sparser/flatter)")
+    p_mk.add_argument("--min-region", type=float, default=0.0015,
+                      help="drop regions smaller than this fraction of the image")
+    p_mk.add_argument("--line", type=int, default=2, help="key-block outline weight (px)")
 
     p_bench = sub.add_parser("bench", help="Sweep matrix over a photo folder")
     p_bench.add_argument("--photos", default="photos")
@@ -70,6 +75,9 @@ def main(argv: list[str] | None = None) -> int:
             mode=ProductionMode(args.mode),
             target_layers=args.layers,
             use_stylizer=not args.no_stylize,
+            simplify=args.simplify,
+            min_region_frac=args.min_region,
+            line_weight=args.line,
         )
         print(f"Wrote project to {out}/")
         print(f"  plan:    {out/'plan.json'}")

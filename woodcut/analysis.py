@@ -18,7 +18,7 @@ def analyze_photo(
     cfg: Config,
     *,
     mode: ProductionMode = ProductionMode.SEPARATE,
-    target_layers: int = 5,
+    target_layers: int = 4,
 ) -> BlockPlan:
     if not cfg.claude_available:
         return _heuristic_plan(Path(photo_path), target_layers, mode)
@@ -51,32 +51,44 @@ def _validate(plan: BlockPlan) -> None:
     # Enforce the one-key-block invariant; if Claude over/under-specified, repair.
     keys = [l for l in plan.layers if l.is_key_block]
     if len(keys) == 0 and plan.layers:
-        # Darkest layer (highest order) becomes the key block.
-        plan.layers[-1].is_key_block = True
+        plan.layers[-1].is_key_block = True   # darkest becomes the key block
     elif len(keys) > 1:
         for extra in keys[1:]:
             extra.is_key_block = False
+    # A layer can't be both key and background.
+    for l in plan.layers:
+        if l.is_key_block and l.is_background:
+            l.is_background = False
+    # Must keep at least one PRINTED color layer (not key, not paper).
+    printed = [l for l in plan.layers if not l.is_key_block and not l.is_background]
+    if not printed:
+        for l in plan.layers:
+            if not l.is_key_block:
+                l.is_background = False
+                break
 
 
 # --- offline fallback ------------------------------------------------------
 
 def _heuristic_plan(photo: Path, target_layers: int, mode: ProductionMode) -> BlockPlan:
-    """A reasonable default plan without Claude: a Killion-ish alpine palette."""
-    palette = ["#e7e2d3", "#a9c0cf", "#6f97a8", "#3f6b6e", "#23373a"]
-    n = max(2, min(target_layers, len(palette)))
+    """A sparse default plan without Claude: bare paper + 2 inks + key block."""
     layers = [
-        Layer(name=f"value {i}", order=i, hex_color=palette[i],
-              opacity=0.9 if i < n - 1 else 1.0,
-              split_fountain=(i == 1),  # treat the high sky band as split-fountain
-              is_key_block=(i == n - 1),
-              notes="heuristic layer (no Claude analysis available)")
-        for i in range(n)
+        Layer(name="paper (negative space)", order=0, hex_color="#efe9da",
+              is_background=True, notes="left unprinted — the breathing room"),
+        Layer(name="light ink", order=1, hex_color="#9bb0a6", opacity=0.9,
+              split_fountain=True, notes="lightest flat color, printed first"),
+        Layer(name="mid ink", order=2, hex_color="#5e7d74", opacity=0.95,
+              notes="second flat color"),
+        Layer(name="key block", order=3, hex_color="#20302b", is_key_block=True,
+              notes="minimal outlines, printed last"),
     ]
     return BlockPlan(
         title=photo.stem.replace("_", " ").title(),
         mode=mode,
-        palette_rationale="Offline heuristic alpine palette (set ANTHROPIC_API_KEY "
-                          "for a real Killion-style analysis).",
-        composition_notes="Posterized into value bands; darkest band carries the key block.",
+        palette_rationale="Offline sparse heuristic: bare paper + two flat inks + a "
+                          "minimal key block (set ANTHROPIC_API_KEY for a real "
+                          "Hiroshige/Hokusai/Killion analysis).",
+        composition_notes="Mostly negative space; a couple of flat shapes; outlines "
+                          "only at region seams.",
         layers=layers,
     )

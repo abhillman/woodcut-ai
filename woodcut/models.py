@@ -46,6 +46,12 @@ class Layer(BaseModel):
         default=False,
         description="The darkest outline/detail block. Printed LAST. Exactly one per print.",
     )
+    is_background: bool = Field(
+        default=False,
+        description="Negative space: left as BARE PAPER, no block carved or printed. "
+                    "Use generously — unprinted paper is the main design element in "
+                    "ukiyo-e/Killion prints. Typically the lightest region.",
+    )
     notes: str = Field(default="", description="Carving guidance from the analysis.")
 
 

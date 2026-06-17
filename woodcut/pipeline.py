@@ -30,8 +30,11 @@ def run_pipeline(
     cfg: Config | None = None,
     *,
     mode: ProductionMode = ProductionMode.SEPARATE,
-    target_layers: int = 5,
+    target_layers: int = 4,
     use_stylizer: bool = True,
+    simplify: int = 0,
+    min_region_frac: float = 0.0015,
+    line_weight: int = 2,
 ) -> PrintProject:
     cfg = cfg or load_config()
     photo_path = Path(photo_path)
@@ -58,9 +61,12 @@ def run_pipeline(
         stylized_path = str(out)
         sep_source = out
 
-    # 3. Separate into per-block masks
+    # 3. Separate into per-block masks (sparse: flatten, despeckle, paper)
     image = Image.open(sep_source).convert("RGB")
-    raster_layers = separate_layers(image, plan, out_dir / "masks")
+    raster_layers = separate_layers(
+        image, plan, out_dir / "masks",
+        simplify=simplify, min_region_frac=min_region_frac, line_weight=line_weight,
+    )
 
     project = PrintProject(
         source_photo=str(photo_path),

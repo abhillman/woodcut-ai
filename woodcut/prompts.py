@@ -1,70 +1,76 @@
-"""Killion-informed prompts.
+"""Prompts tuned for a SPARSE ukiyo-e / Killion woodblock look.
+
+The north star is Hiroshige, Hokusai, and Tom Killion: mostly bare paper, a few
+flat ink areas, and a handful of confident outlines. Negative space (the
+unprinted paper, *ma*) is the primary design element — not a recolored photo.
 
 Two audiences:
-  * Claude (vision analysis + judging): reason about composition and carvability.
-  * Diffusion models (stylization): produce the woodblock *look*.
-
-These are the seed prompts the benchmark harness mutates into variants.
+  * Claude (vision analysis + judging): plan a sparse, carvable reduction.
+  * Diffusion models (stylization): produce the flat, sparse woodblock look.
 """
 from __future__ import annotations
 
-# Shared aesthetic vocabulary, distilled from Killion's "faux ukiyo-e" lineage:
-# Hokusai/Hiroshige landscape composition + Eric Gill / Rockwell Kent wood-
-# engraving line. Flat color, bold silhouette, limited palette, no photoreal.
+# Shared aesthetic vocabulary. Sparse, flat, negative-space-forward.
 AESTHETIC = (
-    "faux ukiyo-e woodblock print in the tradition of Tom Killion; lineage of "
-    "Hokusai and Hiroshige landscape prints crossed with Eric Gill and Rockwell "
-    "Kent wood-engraving; flat areas of color, bold confident outlines, strong "
-    "silhouettes, limited harmonious palette, split-fountain sky gradients, "
-    "no photorealism, no soft gradients within shapes, no fine texture noise"
+    "sparse Japanese woodblock print in the tradition of Hiroshige, Hokusai, and "
+    "Tom Killion; mostly empty unprinted paper (generous negative space / 'ma'), "
+    "a few large flat areas of color, a limited palette of 3-4 inks, confident "
+    "minimal outlines, asymmetric composition, strong silhouettes; NO "
+    "photorealism, NO shading or gradients inside shapes, NO fine texture, NO "
+    "busy detail — radical simplification into bold flat shapes"
 )
 
 # --- Claude: vision analysis -> BlockPlan ---------------------------------
 
 ANALYSIS_SYSTEM = (
-    "You are a master woodblock printmaker analyzing a landscape photograph the "
-    "way Tom Killion analyzes his on-site sketches. Killion never prints from "
-    "photos directly — he aggressively SIMPLIFIES a scene into a small number of "
-    "carvable, flat-color blocks. Your job is the same reduction.\n\n"
-    "Process facts to honor:\n"
-    "- The KEY BLOCK is the darkest, most detailed block: outlines and visual "
-    "anchors. It is printed LAST and every color block registers to it. Exactly "
-    "one layer must be the key block.\n"
-    "- Color blocks print LIGHTEST FIRST, darkest last (order 0 = lightest).\n"
-    "- Skies are often a single split-fountain block (one block, color gradient).\n"
-    "- Semi-transparent overlays let a few blocks yield many colors; use opacity "
-    "<1.0 where overprinting should blend.\n"
-    "- Favor 4–6 layers total. More blocks = more carving and registration risk.\n"
-    "- Think in BOLD SHAPES a gouge can actually cut, not photographic detail."
+    "You are a master woodblock printmaker reducing a photograph to a SPARSE "
+    "print in the tradition of Hiroshige, Hokusai, and Tom Killion. The goal is "
+    "radical simplification, not recoloring. These prints are mostly BARE PAPER "
+    "with only a few flat ink shapes and a handful of decisive lines.\n\n"
+    "Hard rules:\n"
+    "- Use FEW layers: 2-4 PRINTED colors plus the key block. Fewer is better.\n"
+    "- Mark at least one layer is_background=True — large areas left as BARE "
+    "PAPER (negative space). The lightest/sky/empty regions should be paper, not "
+    "ink. Be generous: empty paper is the whole point.\n"
+    "- Exactly one layer is_key_block=True: the darkest, carrying only the few "
+    "essential outlines/silhouettes. It is printed LAST. Keep it minimal — a few "
+    "confident lines, never hatching or texture.\n"
+    "- Color blocks print LIGHTEST FIRST (order 0 = lightest/first down).\n"
+    "- Skies are often a single split-fountain block, or simply bare paper.\n"
+    "- Think in a handful of BOLD FLAT SHAPES a gouge can cut, with lots of empty "
+    "space around them. Eliminate detail aggressively."
 )
 
 ANALYSIS_USER = (
-    "Analyze this photograph and produce a block plan. Identify the tonal/colour "
-    "layers from foreground to sky, choose a palette in the {aesthetic}, decide "
-    "which silhouette carries the key block, and note where flat areas should be "
-    "simplified and where a split-fountain gradient fits. Default to "
-    "{mode} production. Aim for {target_layers} layers."
+    "Reduce this photograph to a sparse block plan in the {aesthetic}. Decide the "
+    "2-4 flat ink shapes worth keeping, mark the empty/lightest regions as "
+    "is_background (bare paper), choose which silhouette carries the minimal key "
+    "block, and pick a restrained palette. Prefer {target_layers} layers TOTAL "
+    "(including key + background); use fewer if the image allows. Default to "
+    "{mode} production."
 ).format(aesthetic=AESTHETIC, mode="{mode}", target_layers="{target_layers}")
 
 
-def analysis_user_prompt(mode: str = "separate", target_layers: int = 5) -> str:
+def analysis_user_prompt(mode: str = "separate", target_layers: int = 4) -> str:
     return ANALYSIS_USER.format(mode=mode, target_layers=target_layers)
 
 
 # --- Diffusion: stylization prompt ----------------------------------------
 
-def stylize_prompt(subject: str, palette_hint: str = "", n_colors: int = 5) -> str:
+def stylize_prompt(subject: str, palette_hint: str = "", n_colors: int = 4) -> str:
     """Build a diffusion prompt for the stylization slot."""
     palette = f" Palette: {palette_hint}." if palette_hint else ""
     return (
-        f"{AESTHETIC}. Subject: {subject}. Reduce to about {n_colors} flat colors."
-        f"{palette} Clean carvable shapes, strong outlines, print-ready."
+        f"{AESTHETIC}. Subject: {subject}. Reduce to {max(2, n_colors)} flat inks "
+        f"over large areas of empty paper.{palette} Bold, sparse, lots of "
+        f"negative space, confident minimal linework, print-ready."
     )
 
 
 STYLIZE_NEGATIVE = (
     "photorealistic, photograph, 3d render, soft focus, gradient shading inside "
-    "shapes, busy texture, watermark, text, blur, noise"
+    "shapes, busy texture, fine detail, hatching, cluttered, dense, watermark, "
+    "text, blur, noise"
 )
 
 
@@ -72,16 +78,17 @@ STYLIZE_NEGATIVE = (
 
 JUDGE_SYSTEM = (
     "You are judging candidate woodblock-print reductions of a source photo for a "
-    "printmaker working in Tom Killion's faux-ukiyo-e style who will LASER-CUT the "
-    "blocks. Score honestly and comparatively. A beautiful image that cannot be "
-    "cleanly carved into a few registered blocks is a bad result."
+    "printmaker working in the SPARSE Hiroshige/Hokusai/Killion tradition who will "
+    "LASER-CUT the blocks. Reward radical simplification and generous negative "
+    "space. Penalize busy, dense, or photo-like results, and anything that "
+    "couldn't be cut into a few registered blocks."
 )
 
 # Scored 0-10 each; the harness aggregates.
 JUDGE_CRITERIA = [
-    ("woodblock_fidelity", "Reads as a flat-color woodblock print, not a filtered photo."),
-    ("shape_boldness", "Shapes are bold, confident, and gouge-carvable."),
-    ("layer_separation", "Colors separate cleanly into distinct, printable blocks."),
-    ("carvability", "Few enough blocks; no slivers/islands that would crumble in wood."),
-    ("killion_resemblance", "Evokes Killion / Hokusai / Hiroshige landscape sensibility."),
+    ("negative_space", "Generous bare paper; sparse, uncluttered, breathing room."),
+    ("shape_boldness", "A few bold, confident, flat, gouge-carvable shapes."),
+    ("woodblock_fidelity", "Reads as a flat-ink woodblock print, not a filtered photo."),
+    ("layer_economy", "Achieves the image in very few blocks/colors."),
+    ("masters_resemblance", "Evokes Hiroshige / Hokusai / Killion sensibility."),
 ]
