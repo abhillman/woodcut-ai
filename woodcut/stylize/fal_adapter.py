@@ -1,7 +1,7 @@
 """fal.ai stylization adapter (img2img).
 
-Same job as the Replicate adapter, on fal.ai's fast hosted diffusion. fal needs
-the input image as a URL, so we upload the local photo first, then run img2img.
+Same job as the Replicate adapter, on fal.ai's fast hosted diffusion. The photo
+is sent inline as a downscaled data URI (no fal CDN upload), then img2img runs.
 Model slug is configurable for benchmark sweeps.
 
 Env:
@@ -13,13 +13,33 @@ The network call is isolated in `_run()` so tests can monkeypatch it.
 """
 from __future__ import annotations
 
+import base64
+import io
 import os
 import urllib.request
 from pathlib import Path
 
+from PIL import Image
+
 from .base import StylizeAdapter
 
 DEFAULT_MODEL = "fal-ai/flux/dev/image-to-image"
+MAX_DIM = 1024  # downscale long edge before sending (cheaper img2img, small request)
+
+
+def image_data_uri(photo_path: str | Path, max_dim: int = MAX_DIM) -> str:
+    """Downscale + JPEG-encode a photo into a data: URI for fal's `image_url`.
+
+    Passing the image inline avoids fal's CDN upload (and its separate
+    storage-auth call) entirely — one less thing that can 403.
+    """
+    with Image.open(photo_path) as im:
+        im = im.convert("RGB")
+        im.thumbnail((max_dim, max_dim))
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=90)
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{b64}"
 
 
 class FalAdapter(StylizeAdapter):
@@ -46,7 +66,7 @@ class FalAdapter(StylizeAdapter):
         return out_path
 
     def _run(self, photo_path: Path, prompt: str, negative_prompt: str) -> dict:
-        """Upload the photo and run img2img; return the fal result dict."""
+        """Run img2img with the image passed inline; return the fal result dict."""
         # fal's client reads FAL_KEY; the user sets FAL_API_TOKEN, so bridge it.
         token = os.environ.get("FAL_API_TOKEN") or os.environ.get("FAL_KEY")
         if token:
@@ -62,16 +82,28 @@ class FalAdapter(StylizeAdapter):
                 "Install it: pip install 'woodcut-ai[providers]'"
             ) from e
 
-        image_url = fal_client.upload_file(str(photo_path))
-        return fal_client.subscribe(
-            self.model,
-            arguments={
-                "image_url": image_url,
-                "prompt": prompt,
-                "strength": self.strength,
-                "num_images": 1,
-            },
-        )
+        # Inline data URI (no fal CDN upload / storage-auth call).
+        image_url = image_data_uri(photo_path)
+        try:
+            return fal_client.subscribe(
+                self.model,
+                arguments={
+                    "image_url": image_url,
+                    "prompt": prompt,
+                    "strength": self.strength,
+                    "num_images": 1,
+                },
+            )
+        except Exception as e:  # noqa: BLE001 - re-wrap auth errors with guidance
+            msg = str(e)
+            if "403" in msg or "401" in msg or "Forbidden" in msg or "Unauthorized" in msg:
+                raise RuntimeError(
+                    "fal rejected the credential (auth error). Check that "
+                    "FAL_API_TOKEN is a valid fal key in 'id:secret' form, has no "
+                    "surrounding quotes/whitespace, and that billing is enabled on "
+                    "your fal account. Original: " + msg
+                ) from e
+            raise
 
 
 def _first_image_url(result: dict) -> str:

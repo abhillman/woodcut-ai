@@ -12,7 +12,7 @@ import pytest
 from PIL import Image
 
 from woodcut.stylize import available_adapters, get_adapter
-from woodcut.stylize.fal_adapter import FalAdapter, _first_image_url
+from woodcut.stylize.fal_adapter import FalAdapter, _first_image_url, image_data_uri
 from woodcut.stylize.replicate_adapter import ReplicateAdapter, _fetch_bytes
 
 
@@ -84,3 +84,16 @@ def test_fal_result_parsing_validates():
     assert _first_image_url({"images": [{"url": "http://x/y.png"}]}) == "http://x/y.png"
     with pytest.raises(RuntimeError):
         _first_image_url({"images": []})
+
+
+def test_image_data_uri_downscales(tmp_path):
+    # A 2000px image should be encoded as a JPEG data URI with long edge <= MAX_DIM.
+    big = tmp_path / "big.png"
+    Image.new("RGB", (2000, 1500), (30, 60, 90)).save(big)
+    uri = image_data_uri(big, max_dim=1024)
+    assert uri.startswith("data:image/jpeg;base64,")
+    import base64
+    import io
+    raw = base64.b64decode(uri.split(",", 1)[1])
+    decoded = Image.open(io.BytesIO(raw))
+    assert max(decoded.size) <= 1024
