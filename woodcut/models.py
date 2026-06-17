@@ -82,6 +82,7 @@ class RasterLayer(BaseModel):
     is_key_block: bool
     mask_path: str
     hex_color: str
+    opacity: float = 1.0
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -92,5 +93,5 @@ class PrintProject(BaseModel):
     plan: BlockPlan
     stylized_path: str | None = None      # diffusion output, if used
     raster_layers: list[RasterLayer] = []
-    svg_path: str | None = None           # assembled laser file
+    preview_path: str | None = None       # flattened color mockup (PNG)
     registration: Literal["corner_ticks", "kento", "none"] = "corner_ticks"

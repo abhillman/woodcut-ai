@@ -70,7 +70,8 @@ woodcut adapters                                  # list stylize adapters
 
 `make` writes, under the output dir:
 `plan.json`, `stylized.png` (if using the stylizer), `masks/` (per-layer),
-`blocks/block_NN_*.svg` (what you send to the laser), and `preview.svg`.
+`blocks/block_NN_*.svg` (what you send to the laser), and `preview.png` (a
+flattened color mockup of the printed result).
 
 ## Wiring a real diffusion model
 

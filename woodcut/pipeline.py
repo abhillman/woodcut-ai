@@ -16,7 +16,7 @@ from PIL import Image
 
 from .analysis import analyze_photo
 from .config import Config, load_config
-from .laser import write_block_svgs, write_preview_svg
+from .laser import write_block_svgs, write_preview_png
 from .models import PrintProject, ProductionMode
 from .prompts import STYLIZE_NEGATIVE, stylize_prompt
 from .separate import separate_layers
@@ -68,10 +68,10 @@ def run_pipeline(
         raster_layers=raster_layers,
     )
 
-    # 4. Vectorize + assemble laser files
+    # 4. Vectorize + assemble laser files, plus a color preview mockup
     write_block_svgs(project, out_dir / "blocks")
-    preview = write_preview_svg(project, out_dir / "preview.svg")
-    project.svg_path = str(preview)
+    preview = write_preview_png(project, out_dir / "preview.png")
+    project.preview_path = str(preview)
 
     (out_dir / "project.json").write_text(project.model_dump_json(indent=2))
     return project

@@ -19,10 +19,12 @@ import svgwrite
 from PIL import Image
 
 from .models import PrintProject, RasterLayer
+from .separate import _hex_to_rgb
 from .vectorize import potrace_available, trace_to_svg_file
 
 REG_TICK = 24  # px registration tick length
 MARGIN = 40
+PAPER = "#f3efe6"  # warm Japanese-paper ground for the preview
 
 
 def _dims(layers: list[RasterLayer]) -> tuple[int, int]:
@@ -67,10 +69,13 @@ def write_block_svgs(project: PrintProject, out_dir: Path) -> list[Path]:
             # group scaled from our pixel space to potrace's via a viewBox match.
             _inject_before_close(path, reg, src_w=w, src_h=h)
         else:
-            # Fallback: a valid SVG embedding the raster mask + reg marks.
+            # Fallback: a self-contained SVG embedding the mask as a base64 data
+            # URI (no file:// reference — opens anywhere) + reg marks.
+            import base64
+            data = base64.b64encode(Path(layer.mask_path).read_bytes()).decode("ascii")
             dwg = svgwrite.Drawing(str(path), size=(w, h), viewBox=f"0 0 {w} {h}")
             dwg.add(dwg.rect((0, 0), (w, h), fill="white"))
-            dwg.add(dwg.image(href=Path(layer.mask_path).resolve().as_uri(),
+            dwg.add(dwg.image(href=f"data:image/png;base64,{data}",
                               insert=(0, 0), size=(w, h)))
             dwg.save()
             _inject_before_close(path, reg, src_w=w, src_h=h, has_viewbox=True)
@@ -102,19 +107,32 @@ def _inject_before_close(path: Path, fragment: str, *, src_w: int, src_h: int,
     path.write_text(text.replace("</svg>", frag + "</svg>", 1))
 
 
-def write_preview_svg(project: PrintProject, out_path: Path) -> Path:
-    """Stacked color preview: lightest first, key block on top."""
+def write_preview_png(project: PrintProject, out_path: Path) -> Path:
+    """Flattened color mockup of the final print — always opens (it's a PNG).
+
+    Composites each layer in PRESS ORDER (color blocks lightest-first, key block
+    last) tinted with its ink color over a warm Japanese-paper ground, honoring
+    each layer's opacity so semi-transparent overprints read correctly. This is
+    a mockup of the printed result, not a laser file (those are the block SVGs).
+    """
+    import numpy as np
+
     layers = sorted(project.raster_layers, key=lambda l: l.order)
     w, h = _dims(layers)
-    dwg = svgwrite.Drawing(str(out_path), size=(w, h))
-    dwg.add(dwg.rect((0, 0), (w, h), fill="#f3efe6"))  # warm Japanese-paper ground
-    # Color blocks first, then the key block last (as in the press).
+    canvas = np.empty((h, w, 3), dtype=np.float32)
+    canvas[:] = np.array(_hex_to_rgb(PAPER), dtype=np.float32)
+
     ordered = [l for l in layers if not l.is_key_block] + [l for l in layers if l.is_key_block]
     for layer in ordered:
-        op = 1.0 if layer.is_key_block else 0.85
-        dwg.add(dwg.image(href=Path(layer.mask_path).resolve().as_uri(),
-                          insert=(0, 0), size=(w, h), opacity=op,
-                          style=f"mix-blend-mode:multiply"))
+        with Image.open(layer.mask_path) as m:
+            mask = np.asarray(m.convert("L"), dtype=np.float32) / 255.0
+        if mask.shape != (h, w):  # guard against size drift between masks
+            mask = np.asarray(Image.fromarray((mask * 255).astype("uint8")).resize((w, h)),
+                              dtype=np.float32) / 255.0
+        ink = np.array(_hex_to_rgb(layer.hex_color), dtype=np.float32)
+        alpha = (mask * layer.opacity)[..., None]
+        canvas = canvas * (1.0 - alpha) + ink * alpha
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    dwg.save()
+    Image.fromarray(canvas.clip(0, 255).astype("uint8"), "RGB").save(out_path)
     return out_path

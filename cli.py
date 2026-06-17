@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"Wrote project to {out}/")
         print(f"  plan:    {out/'plan.json'}")
-        print(f"  preview: {project.svg_path}")
+        print(f"  preview: {project.preview_path}")
         print(f"  blocks:  {out/'blocks'}/  ({len(project.raster_layers)} blocks)")
         if not cfg.claude_available:
             print("  [note] offline heuristic plan — set ANTHROPIC_API_KEY for Claude analysis.")

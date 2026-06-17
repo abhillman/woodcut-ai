@@ -53,8 +53,9 @@ def run_benchmark(
                 target_layers=cell.target_layers,
                 use_stylizer=cell.use_stylizer,
             )
-            # Judge the most representative artifact we have (stylized > preview).
-            candidate = project.stylized_path or project.svg_path
+            # Judge the most representative artifact (the color preview mockup,
+            # else the stylized image).
+            candidate = project.preview_path or project.stylized_path
             score = None
             if judge and candidate and candidate.endswith((".png", ".jpg", ".jpeg")):
                 score = judge_result(photo, candidate, cfg, label=project.plan.title)
@@ -65,7 +66,7 @@ def run_benchmark(
                 "label": cell.label,
                 "out_dir": str(out_dir),
                 "stylized": project.stylized_path,
-                "preview": project.svg_path,
+                "preview": project.preview_path,
                 "overall": score.overall if score else None,
                 "verdict": score.verdict if score else None,
             })

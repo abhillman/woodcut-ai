@@ -79,16 +79,19 @@ def separate_layers(
     for li, layer in enumerate(color_layers):
         member_clusters = [c for c, l in cluster_to_layer.items() if l == li]
         mask = np.isin(labels, member_clusters)
-        results.append(_save_mask(mask, layer.name, layer.order, False, layer.hex_color, out_dir))
+        results.append(_save_mask(mask, layer.name, layer.order, False,
+                                  layer.hex_color, layer.opacity, out_dir))
 
     # Key block from edges + dark detail.
     key_mask = _key_block_mask(image)
-    results.append(_save_mask(key_mask, key.name, key.order, True, key.hex_color, out_dir))
+    results.append(_save_mask(key_mask, key.name, key.order, True,
+                              key.hex_color, key.opacity, out_dir))
     return results
 
 
 def _save_mask(
-    mask: np.ndarray, name: str, order: int, is_key: bool, hex_color: str, out_dir: Path
+    mask: np.ndarray, name: str, order: int, is_key: bool,
+    hex_color: str, opacity: float, out_dir: Path
 ) -> RasterLayer:
     safe = "".join(ch if ch.isalnum() else "_" for ch in name).strip("_") or f"layer{order}"
     fname = f"{order:02d}_{'key_' if is_key else ''}{safe}.png"
@@ -100,4 +103,5 @@ def _save_mask(
         is_key_block=is_key,
         mask_path=str(path),
         hex_color=hex_color,
+        opacity=opacity,
     )

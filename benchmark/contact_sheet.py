@@ -16,10 +16,11 @@ CAPTION_H = 30
 
 
 def _load_preview(rec: dict) -> Image.Image:
-    """Prefer the stylized PNG; else fall back to the key-block mask if present."""
-    candidate = rec.get("stylized")
-    if candidate and Path(candidate).exists() and candidate.endswith((".png", ".jpg", ".jpeg")):
-        return Image.open(candidate).convert("RGB")
+    """Prefer the color preview mockup, then stylized, then the key-block mask."""
+    for key in ("preview", "stylized"):
+        candidate = rec.get(key)
+        if candidate and Path(candidate).exists() and candidate.endswith((".png", ".jpg", ".jpeg")):
+            return Image.open(candidate).convert("RGB")
     masks = Path(rec["out_dir"]) / "masks"
     if masks.exists():
         keys = sorted(masks.glob("*key*.png"))
