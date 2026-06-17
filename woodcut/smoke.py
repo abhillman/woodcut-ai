@@ -19,7 +19,7 @@ from .stylize import get_adapter
 # Which env var holds each provider's credential.
 _TOKEN_ENV = {
     "replicate": ["REPLICATE_API_TOKEN"],
-    "fal": ["FAL_AI_TOKEN", "FAL_KEY"],
+    "fal": ["FAL_API_TOKEN", "FAL_KEY"],
     "stub": [],
 }
 

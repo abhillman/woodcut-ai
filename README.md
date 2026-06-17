@@ -94,7 +94,7 @@ in the box:
 pip install -e '.[providers]'          # installs the replicate + fal-client SDKs
 # in .env:
 WOODCUT_STYLIZE_ADAPTER=replicate
-REPLICATE_API_TOKEN=...                 # or FAL_AI_TOKEN=... with adapter=fal
+REPLICATE_API_TOKEN=...                 # or FAL_API_TOKEN=... with adapter=fal
 REPLICATE_MODEL=stability-ai/sdxl       # swap the model slug to sweep variants
 WOODCUT_STYLIZE_STRENGTH=0.65           # img2img strength; lower = closer to photo
 

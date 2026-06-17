@@ -37,7 +37,7 @@ def default_matrix() -> list[Cell]:
     adapters = ["stub"]
     if os.environ.get("REPLICATE_API_TOKEN"):
         adapters.append("replicate")
-    if os.environ.get("FAL_AI_TOKEN") or os.environ.get("FAL_KEY"):
+    if os.environ.get("FAL_API_TOKEN") or os.environ.get("FAL_KEY"):
         adapters.append("fal")
 
     for adapter, layers, mode in product(

@@ -5,7 +5,7 @@ the input image as a URL, so we upload the local photo first, then run img2img.
 Model slug is configurable for benchmark sweeps.
 
 Env:
-  FAL_AI_TOKEN   (required for real calls; bridged to FAL_KEY for the client)
+  FAL_API_TOKEN   (required for real calls; bridged to FAL_KEY for the client)
   FAL_MODEL      model slug, default 'fal-ai/flux/dev/image-to-image'
   WOODCUT_STYLIZE_STRENGTH   img2img strength 0..1 (lower = closer to photo)
 
@@ -47,12 +47,12 @@ class FalAdapter(StylizeAdapter):
 
     def _run(self, photo_path: Path, prompt: str, negative_prompt: str) -> dict:
         """Upload the photo and run img2img; return the fal result dict."""
-        # fal's client reads FAL_KEY; the user sets FAL_AI_TOKEN, so bridge it.
-        token = os.environ.get("FAL_AI_TOKEN") or os.environ.get("FAL_KEY")
+        # fal's client reads FAL_KEY; the user sets FAL_API_TOKEN, so bridge it.
+        token = os.environ.get("FAL_API_TOKEN") or os.environ.get("FAL_KEY")
         if token:
             os.environ.setdefault("FAL_KEY", token)
         elif not os.environ.get("FAL_KEY"):
-            raise RuntimeError("FAL_AI_TOKEN (or FAL_KEY) is not set.")
+            raise RuntimeError("FAL_API_TOKEN (or FAL_KEY) is not set.")
 
         try:
             import fal_client
