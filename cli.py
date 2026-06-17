@@ -3,6 +3,7 @@
     woodcut analyze  PHOTO                 # Claude -> block plan (JSON)
     woodcut make     PHOTO [-o OUT]        # full pipeline -> laser SVGs + preview
     woodcut bench    [--photos DIR]        # sweep the matrix + judge + contact sheet
+    woodcut smoke    [--adapter NAME]      # one real diffusion call; verify tokens
     woodcut adapters                       # list registered stylize adapters
 
 Runs fully offline (heuristic plan + stub stylizer); set ANTHROPIC_API_KEY for
@@ -41,6 +42,10 @@ def main(argv: list[str] | None = None) -> int:
     p_bench.add_argument("--photos", default="photos")
     p_bench.add_argument("--no-judge", action="store_true")
 
+    p_smoke = sub.add_parser("smoke", help="One real diffusion call to verify a provider")
+    p_smoke.add_argument("--adapter", default=None, help="adapter name (default: active)")
+    p_smoke.add_argument("--photo", default=None, help="photo to use (default: synthetic swatch)")
+
     sub.add_parser("adapters", help="List registered stylize adapters")
 
     args = parser.parse_args(argv)
@@ -69,6 +74,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote project to {out}/")
         print(f"  plan:    {out/'plan.json'}")
         print(f"  preview: {project.preview_path}")
+        print(f"  sheet:   {project.block_sheet_path}")
         print(f"  blocks:  {out/'blocks'}/  ({len(project.raster_layers)} blocks)")
         if not cfg.claude_available:
             print("  [note] offline heuristic plan — set ANTHROPIC_API_KEY for Claude analysis.")
@@ -78,6 +84,13 @@ def main(argv: list[str] | None = None) -> int:
         from benchmark.run import run_benchmark
         run_benchmark(args.photos, judge=not args.no_judge)
         return 0
+
+    if args.cmd == "smoke":
+        from woodcut.smoke import run_smoke
+        ok, message, _ = run_smoke(args.adapter or cfg.stylize_adapter, args.photo)
+        print(message)
+        print("RESULT:", "PASS ✓" if ok else "FAIL ✗")
+        return 0 if ok else 1
 
     return 1
 

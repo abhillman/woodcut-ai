@@ -65,13 +65,19 @@ woodcut make photos/lake.jpg --no-stylize        # classical-CV-only path
 # Sweep approaches/params over a folder, judge with Claude, build a contact sheet
 woodcut bench --photos photos
 
+woodcut smoke --adapter replicate                 # one real call; verify your token
 woodcut adapters                                  # list stylize adapters
 ```
 
 `make` writes, under the output dir:
 `plan.json`, `stylized.png` (if using the stylizer), `masks/` (per-layer),
-`blocks/block_NN_*.svg` (what you send to the laser), and `preview.png` (a
-flattened color mockup of the printed result).
+`blocks/block_NN_*.svg` (what you send to the laser), `preview.png` (a flattened
+color mockup of the printed result), and `block_sheet.png` (a labeled reference
+sheet showing each carved block in its ink color).
+
+Before a full benchmark, sanity-check your provider token with one cheap call:
+`woodcut smoke --adapter replicate` (or `--adapter fal`) reports whether the
+token is set, the SDK is installed, and the call succeeded.
 
 ## Diffusion stylization adapters
 

@@ -20,6 +20,7 @@ from .laser import write_block_svgs, write_preview_png
 from .models import PrintProject, ProductionMode
 from .prompts import STYLIZE_NEGATIVE, stylize_prompt
 from .separate import separate_layers
+from .sheet import build_block_sheet
 from .stylize import get_adapter
 
 
@@ -68,10 +69,10 @@ def run_pipeline(
         raster_layers=raster_layers,
     )
 
-    # 4. Vectorize + assemble laser files, plus a color preview mockup
+    # 4. Vectorize + assemble laser files, plus preview + per-block sheet
     write_block_svgs(project, out_dir / "blocks")
-    preview = write_preview_png(project, out_dir / "preview.png")
-    project.preview_path = str(preview)
+    project.preview_path = str(write_preview_png(project, out_dir / "preview.png"))
+    project.block_sheet_path = str(build_block_sheet(project, out_dir / "block_sheet.png"))
 
     (out_dir / "project.json").write_text(project.model_dump_json(indent=2))
     return project

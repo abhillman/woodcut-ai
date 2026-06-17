@@ -94,4 +94,5 @@ class PrintProject(BaseModel):
     stylized_path: str | None = None      # diffusion output, if used
     raster_layers: list[RasterLayer] = []
     preview_path: str | None = None       # flattened color mockup (PNG)
+    block_sheet_path: str | None = None   # labeled per-block reference sheet (PNG)
     registration: Literal["corner_ticks", "kento", "none"] = "corner_ticks"
